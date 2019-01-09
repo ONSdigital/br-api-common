@@ -11,6 +11,14 @@ import uk.gov.ons.br.utils.BaseUrl
  * family up front.
  */
 private[rest] object HBaseRestUrl {
+  private val CheckedPutSuffix = "/?check=put"
+
+  def forCheckedPut(withBase: BaseUrl, namespace: String, table: String, rowKey: RowKey): String =
+    forRow(withBase, namespace, table, rowKey).concat(CheckedPutSuffix)
+
+  def forCheckedPut(namespace: String, table: String, rowKey: RowKey): String =
+    forRow(namespace, table, rowKey).concat(CheckedPutSuffix)
+
   def forRow(withBase: BaseUrl, namespace: String, table: String, rowKey: RowKey): String =
     s"${BaseUrl.asUrlString(withBase)}/${forRow(namespace, table, rowKey)}"
 

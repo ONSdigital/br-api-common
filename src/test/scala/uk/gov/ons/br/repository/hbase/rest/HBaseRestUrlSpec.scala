@@ -16,5 +16,11 @@ class HBaseRestUrlSpec extends UnitSpec {
 
       url shouldBe "http://hostname:1234/namespace:table/rowKey"
     }
+
+    "that specifies a checked put to a target row" in new Fixture {
+      val url = HBaseRestUrl.forCheckedPut(baseUrl, namespace = "namespace", table = "table", rowKey = "rowKey")
+
+      url shouldBe "http://hostname:1234/namespace:table/rowKey/?check=put"
+    }
   }
 }

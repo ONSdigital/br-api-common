@@ -2,55 +2,16 @@ package uk.gov.ons.br.repository.hbase.rest
 
 
 import com.github.tomakehurst.wiremock.client.WireMock.aResponse
-import org.scalamock.scalatest.MockFactory
-import org.scalatest.concurrent.{PatienceConfiguration, ScalaFutures}
-import org.scalatest.time.{Millis, Span}
-import org.scalatest.{EitherValues, Matchers, Outcome}
-import org.slf4j.Logger
 import play.api.http.Status.{BAD_REQUEST, UNAUTHORIZED}
-import play.api.libs.json.{JsError, JsSuccess, Json, Reads}
-import play.api.libs.ws.WSClient
-import play.api.test.WsTestClient
+import play.api.libs.json.{JsError, JsSuccess, Json}
 import uk.gov.ons.br.repository.hbase.HBaseColumn.name
 import uk.gov.ons.br.repository.hbase.rest.HBaseRestRepository_Query_WiremockSpec._
 import uk.gov.ons.br.repository.hbase.{HBaseCell, HBaseColumn, HBaseRow}
-import uk.gov.ons.br.test.hbase.{HBaseJsonRequestBuilder, WireMockHBase}
-import uk.gov.ons.br.utils.{BaseUrl, Port}
 import uk.gov.ons.br.{ResultRepositoryError, ServerRepositoryError, TimeoutRepositoryError}
 
-import scala.concurrent.ExecutionContext
+class HBaseRestRepository_Query_WiremockSpec extends AbstractHBaseRestRepositoryWiremockSpec {
 
-class HBaseRestRepository_Query_WiremockSpec extends org.scalatest.fixture.FreeSpec with WireMockHBase with
-  HBaseJsonRequestBuilder with Matchers with EitherValues with MockFactory with ScalaFutures with PatienceConfiguration {
-
-  // test timeout must exceed the configured HBaseRest timeout to properly test client-side timeout handling
-  override implicit val patienceConfig: PatienceConfig =
-    PatienceConfig(timeout = scaled(Span(1500, Millis)), interval = scaled(Span(50, Millis)))
-
-  protected case class FixtureParam(config: HBaseRestRepositoryConfig,
-                                    auth: Authorization,
-                                    repository: HBaseRestRepository,
-                                    readsRows: Reads[Seq[HBaseRow]],
-                                    logger: Logger)
-
-  override protected def withFixture(test: OneArgTest): Outcome =
-    withWireMockHBase(HBasePort) { () =>
-      WsTestClient.withClient { wsClient =>
-        val fixture = makeFixtureParam(wsClient)
-        withFixture(test.toNoArgTest(fixture))
-      }(new play.api.http.Port(HBasePort))
-    }
-
-  private def makeFixtureParam(wsClient: WSClient): FixtureParam = {
-    val config = HBaseRestRepositoryConfig(
-      BaseUrl(protocol = "http", host = "localhost", port = Port(HBasePort), prefix = None),
-      namespace = "namespace", tableName = Table, username = "username", password = "password", timeout = 1000L)
-    val auth = Authorization(config.username, config.password)
-    val readsRows = mock[Reads[Seq[HBaseRow]]]
-    val repository = new HBaseRestRepository(config, wsClient, readsRows)(ExecutionContext.global)
-    val logger = stub[Logger]
-    FixtureParam(config, auth, repository, readsRows, logger)
-  }
+  override protected val HBasePort = 8075
 
   "A HBase REST Repository" - {
     "when attempting to retrieve a specific row by the rowKey" - {
@@ -191,9 +152,7 @@ class HBaseRestRepository_Query_WiremockSpec extends org.scalatest.fixture.FreeS
 
 private object HBaseRestRepository_Query_WiremockSpec {
   private val DummyJsonResponseStr = """{"some":"json"}"""
-  private val Table = "table"
   private val RowKey = "rowKey"
   private val ColumnName = name(HBaseColumn("family", "qualifier"))
   private val ColumnValue = "columnValue"
-  private val HBasePort = 8075
 }
