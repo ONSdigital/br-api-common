@@ -58,7 +58,7 @@ lazy val root = (project in file(".")).
       seleniumRemoteDriver,
       guava
     )
-  )
+  ).settings(publishSettings)
 
 lazy val publishSettings = Seq(
   resolvers += Resolver.jcenterRepo,
