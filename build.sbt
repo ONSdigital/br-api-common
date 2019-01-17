@@ -55,7 +55,8 @@ lazy val root = (project in file(".")).
       jettyUtil,
       scalaParserCombinators,
       scalaXml,
-      seleniumRemoteDriver
+      seleniumRemoteDriver,
+      guava
     )
   )
 
