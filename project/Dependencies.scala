@@ -4,7 +4,7 @@ object Dependencies {
   private lazy val silencerVersion = "1.3.1"
   
   lazy val playWs = "com.typesafe.play" %% "play-ws" % "2.6.20"
-  lazy val registersApiTest = "uk.gov.ons" %% "br-api-test-common" % "0.1.0-SNAPSHOT"
+  lazy val registersApiTest =  "uk.gov.ons" % "br-api-test-common_2.12" % "1.1"
   lazy val scalaMock = "org.scalamock" %% "scalamock" % "4.1.0"
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.0.4"
   lazy val silencerLib = "com.github.ghik" %% "silencer-lib" % silencerVersion
