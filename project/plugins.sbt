@@ -17,3 +17,9 @@ addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.5.1")
  * generate static analysis reports to target/scala-2.12/scapegoat-report: sbt scapegoat
  */
 addSbtPlugin("com.sksamuel.scapegoat" %% "sbt-scapegoat" % "1.0.9")
+
+/*
+ * https://github.com/scalacenter/sbt-release-early
+ * create releases and push to bintray
+ */
+addSbtPlugin("ch.epfl.scala" % "sbt-release-early" % "2.1.1")

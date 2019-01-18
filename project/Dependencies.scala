@@ -23,6 +23,7 @@ object DependencyOverrides {
   lazy val scalaParserCombinators = "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.6"
   lazy val scalaXml = "org.scala-lang.modules" %% "scala-xml" % "1.0.6"
   lazy val seleniumRemoteDriver = "org.seleniumhq.selenium" % "selenium-remote-driver" % "3.5.3"
+  lazy val guava = "com.google.guava" % "guava" % "22.0"
 
   // we are not using selenium - favour the jetty components needed by wiremock
   lazy val jettyHttp = "org.eclipse.jetty" % "jetty-http" % "9.2.24.v20180105"
