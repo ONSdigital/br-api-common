@@ -5,10 +5,12 @@ import org.scalamock.scalatest.MockFactory
 import org.scalatest.OneInstancePerTest
 import org.scalatest.concurrent.ScalaFutures
 import org.slf4j.Logger
-import play.api.libs.json.Reads
-import play.api.libs.ws.{WSClient, WSRequest, WSResponse}
+import play.api.http.Status
+import play.api.libs.json._
+import play.api.libs.ws.{BodyWritable, WSClient, WSRequest, WSResponse}
 import uk.gov.ons.br.ServerRepositoryError
-import uk.gov.ons.br.repository.hbase.HBaseRow
+import uk.gov.ons.br.repository.CommandRepository.EditFailed
+import uk.gov.ons.br.repository.hbase.{HBaseCell, HBaseColumn, HBaseRow}
 import uk.gov.ons.br.test.UnitSpec
 import uk.gov.ons.br.utils.{BaseUrl, Port}
 
@@ -49,6 +51,27 @@ class HBaseRestRepository_MockClientSpec extends UnitSpec with MockFactory with 
     }
   }
 
+  private trait EditFixture extends Fixture {
+    val UpdateUrlSuffix = "/?check=put"
+    private val ColumnName = HBaseColumn.name("family")("qualifier")
+    val OriginalCell = HBaseCell(ColumnName, "old-value")
+    val UpdatedCell = HBaseCell(ColumnName, "new-value")
+
+    def stubTargetRowExists(): Unit = {
+      val getRequest = stub[WSRequest]
+      val getResponse = stub[WSResponse]
+      (wsClient.url _).when(where[String] { ! _.endsWith(UpdateUrlSuffix) }).returns(getRequest)
+      (getRequest.withHttpHeaders _).when(*).returns(getRequest)
+      (getRequest.withAuth _).when(*, *, *).returns(getRequest)
+      (getRequest.withRequestTimeout _).when(*).returns(getRequest)
+      (getRequest.get _).when().returns(Future.successful(getResponse))
+      (getResponse.status _).when().returns(Status.OK)
+      (getResponse.json _).when().returns(JsObject.empty)
+      (readsRows.reads _).when(*).returns(JsSuccess(Seq(HBaseRow(RowKey, Seq(OriginalCell)))))
+      () // explicitly return unit to avoid warning about disregarded return value
+    }
+  }
+
   "A HBase REST repository" - {
     "when querying data" - {
       "specifies the configured client-side timeout when making a request" in new Fixture {
@@ -81,6 +104,47 @@ class HBaseRestRepository_MockClientSpec extends UnitSpec with MockFactory with 
 
         whenReady(underTest.findRow(RowKey)) { result =>
           result.left.value shouldBe ServerRepositoryError("Connection failed")
+        }
+      }
+    }
+
+    "when updating data" - {
+      "specifies the configured client-side timeout when making a request" in new EditFixture {
+        stubTargetRowExists()
+        (wsClient.url _).when(where[String] { _.endsWith(UpdateUrlSuffix) }).returns(wsRequest)
+        expectRequestHeadersAndAuth()
+        (wsRequest.withRequestTimeout _).expects(ClientTimeout.milliseconds).returning(wsRequest)
+        (wsRequest.put(_: JsValue)(_: BodyWritable[JsValue])).expects(*, *).returning(Future.successful(wsResponse))
+
+        Await.result(underTest.updateRow(RowKey, checkCell = OriginalCell, updateCell = UpdatedCell), AwaitTime)
+      }
+
+      "targets the specified host and port when making a request" in new EditFixture {
+        stubTargetRowExists()
+        (wsClient.url _).when(where[String] { url =>
+          url.startsWith(s"$Protocol://$Host:$PortNumber") && url.endsWith(UpdateUrlSuffix)
+        }).returning(wsRequest)
+        expectRequestHeadersAndAuth()
+        (wsRequest.withRequestTimeout _).expects(*).returning(wsRequest)
+        (wsRequest.put(_: JsValue)(_: BodyWritable[JsValue])).expects(*, *).returning(Future.successful(wsResponse))
+
+        Await.result(underTest.updateRow(RowKey, checkCell = OriginalCell, updateCell = UpdatedCell), AwaitTime)
+      }
+
+      /*
+       * Any connection failed / socket disconnected type issue will likely result in the WsRequest's
+       * Future failing.  This tests the "catch-all" case, and that we can effectively recover the Future.
+       */
+      "materialises an error into a failure" in new EditFixture {
+        stubTargetRowExists()
+        (wsClient.url _).when(where[String] { _.endsWith(UpdateUrlSuffix) }).returns(wsRequest)
+        expectRequestHeadersAndAuth()
+        (wsRequest.withRequestTimeout _).expects(*).returning(wsRequest)
+        (wsRequest.put(_: JsValue)(_: BodyWritable[JsValue])).expects(*, *).returning(
+          Future.failed(new Exception("Connection failed")))
+
+        whenReady(underTest.updateRow(RowKey, checkCell = OriginalCell, updateCell = UpdatedCell)) { result =>
+          result shouldBe a [EditFailed]
         }
       }
     }

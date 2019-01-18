@@ -1,6 +1,7 @@
 package uk.gov.ons.br.repository.hbase
 
 import org.slf4j.Logger
+import uk.gov.ons.br.repository.CommandRepository.OptimisticEditResult
 import uk.gov.ons.br.repository.QueryResult
 
 import scala.concurrent.Future
@@ -11,4 +12,6 @@ import scala.concurrent.Future
  */
 trait HBaseRepository {
   def findRow(rowKey: RowKey)(implicit logger: Logger): Future[QueryResult[HBaseRow]]
+
+  def updateRow(rowKey: RowKey, checkCell: HBaseCell, updateCell: HBaseCell)(implicit logger: Logger): Future[OptimisticEditResult]
 }

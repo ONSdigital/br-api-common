@@ -18,6 +18,7 @@ Publish to the local Ivy repository:
 
     sbt clean publishLocal
 
+
 ### Release to Bintray via Travis CI
 
 In Travis CI add the following environment variables PGP_PASS, BINTRAY_USER and BINTRAY_PASS
