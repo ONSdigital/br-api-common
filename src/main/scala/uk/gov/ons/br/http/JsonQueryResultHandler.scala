@@ -1,5 +1,6 @@
 package uk.gov.ons.br.http
 
+
 import org.slf4j.{Logger, LoggerFactory}
 import play.api.libs.json.{Json, Writes}
 import play.api.mvc.Result

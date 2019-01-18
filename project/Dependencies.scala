@@ -4,7 +4,7 @@ object Dependencies {
   private lazy val silencerVersion = "1.3.1"
   
   lazy val playWs = "com.typesafe.play" %% "play-ws" % "2.6.20"
-  lazy val registersApiTest = "uk.gov.ons" %% "br-api-test-common" % "0.1.0-SNAPSHOT"
+  lazy val registersApiTest =  "uk.gov.ons" %% "br-api-test-common" % "1.2"
   lazy val scalaMock = "org.scalamock" %% "scalamock" % "4.1.0"
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.0.4"
   lazy val silencerLib = "com.github.ghik" %% "silencer-lib" % silencerVersion
@@ -23,6 +23,7 @@ object DependencyOverrides {
   lazy val scalaParserCombinators = "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.6"
   lazy val scalaXml = "org.scala-lang.modules" %% "scala-xml" % "1.0.6"
   lazy val seleniumRemoteDriver = "org.seleniumhq.selenium" % "selenium-remote-driver" % "3.5.3"
+  lazy val guava = "com.google.guava" % "guava" % "22.0"
 
   // we are not using selenium - favour the jetty components needed by wiremock
   lazy val jettyHttp = "org.eclipse.jetty" % "jetty-http" % "9.2.24.v20180105"

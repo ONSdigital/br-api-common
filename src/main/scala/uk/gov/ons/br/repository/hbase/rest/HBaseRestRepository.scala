@@ -1,5 +1,6 @@
 package uk.gov.ons.br.repository.hbase.rest
 
+
 import javax.inject.Inject
 import org.slf4j.Logger
 import play.api.http.HeaderNames.{ACCEPT, CONTENT_TYPE}
