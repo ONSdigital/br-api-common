@@ -7,7 +7,7 @@ import play.api.libs.json._
 import uk.gov.ons.br.models.Ubrn
 import uk.gov.ons.br.models.patch.{Patch, ReplaceOperation, TestOperation}
 import uk.gov.ons.br.repository.CommandRepository
-import uk.gov.ons.br.repository.CommandRepository.{EditApplied, EditConflicted, EditFailed, EditTargetNotFound}
+import uk.gov.ons.br.repository.CommandRepository._
 import uk.gov.ons.br.services.PatchService._
 import uk.gov.ons.br.services.UnitRegistryService
 import uk.gov.ons.br.services.UnitRegistryService.{UnitFound, UnitNotFound, UnitRegistryFailure}
@@ -28,10 +28,11 @@ class AdminDataPatchServiceSpec extends UnitSpec with MockFactory with ScalaFutu
 
   "An Admin Data PatchService" - {
     "can apply a patch requesting a checked update of the Admin Unit's parent UBRN to that of a Legal Unit that exists in the register" in new Fixture {
-      val patch = parentUpdatePatch(test = JsString(From), replace = ReplaceOperationJsValue)
+      val patch = PatchDescriptor(editedBy = UserId, parentUpdateOperations(test = JsString(From), replace = ReplaceOperationJsValue))
+      val updateParentCommand = UpdateParentLinkCommand(from = From, to = ToUbrn, editedBy = UserId)
       (readsUbrn.reads _).expects(ReplaceOperationJsValue).returning(JsSuccess(ToUbrn))
       (unitRegistryService.isRegistered _).expects(ToUbrn).returning(Future.successful(UnitFound))
-      (repository.updateParentLink _).expects(AdminUnitRef, From, ToUbrn).returning(Future.successful(EditApplied))
+      (repository.updateParentLink _).expects(AdminUnitRef, updateParentCommand).returning(Future.successful(EditApplied))
 
       whenReady(underTest.applyPatchTo(AdminUnitRef, patch)) { result =>
         result shouldBe PatchApplied
@@ -39,10 +40,11 @@ class AdminDataPatchServiceSpec extends UnitSpec with MockFactory with ScalaFutu
     }
 
     "can signal that an attempt to apply a patch conflicted with another change" in new Fixture {
-      val patch = parentUpdatePatch(test = JsString(From), replace = ReplaceOperationJsValue)
+      val patch = PatchDescriptor(editedBy = UserId, parentUpdateOperations(test = JsString(From), replace = ReplaceOperationJsValue))
+      val updateParentCommand = UpdateParentLinkCommand(from = From, to = ToUbrn, editedBy = UserId)
       (readsUbrn.reads _).expects(ReplaceOperationJsValue).returning(JsSuccess(ToUbrn))
       (unitRegistryService.isRegistered _).expects(ToUbrn).returning(Future.successful(UnitFound))
-      (repository.updateParentLink _).expects(AdminUnitRef, From, ToUbrn).returning(Future.successful(EditConflicted))
+      (repository.updateParentLink _).expects(AdminUnitRef, updateParentCommand).returning(Future.successful(EditConflicted))
 
       whenReady(underTest.applyPatchTo(AdminUnitRef, patch)) { result =>
         result shouldBe PatchConflicted
@@ -50,10 +52,11 @@ class AdminDataPatchServiceSpec extends UnitSpec with MockFactory with ScalaFutu
     }
 
     "can signal that the Admin Unit that is the subject of the patch could not be found" in new Fixture {
-      val patch = parentUpdatePatch(test = JsString(From), replace = ReplaceOperationJsValue)
+      val patch = PatchDescriptor(editedBy = UserId, parentUpdateOperations(test = JsString(From), replace = ReplaceOperationJsValue))
+      val updateParentCommand = UpdateParentLinkCommand(from = From, to = ToUbrn, editedBy = UserId)
       (readsUbrn.reads _).expects(ReplaceOperationJsValue).returning(JsSuccess(ToUbrn))
       (unitRegistryService.isRegistered _).expects(ToUbrn).returning(Future.successful(UnitFound))
-      (repository.updateParentLink _).expects(AdminUnitRef, From, ToUbrn).returning(Future.successful(EditTargetNotFound))
+      (repository.updateParentLink _).expects(AdminUnitRef, updateParentCommand).returning(Future.successful(EditTargetNotFound))
 
       whenReady(underTest.applyPatchTo(AdminUnitRef, patch)) { result =>
         result shouldBe PatchTargetNotFound
@@ -61,11 +64,12 @@ class AdminDataPatchServiceSpec extends UnitSpec with MockFactory with ScalaFutu
     }
 
     "can signal that an attempt to apply a patch failed (as a result of some error)" in new Fixture {
-      val patch = parentUpdatePatch(test = JsString(From), replace = ReplaceOperationJsValue)
+      val patch = PatchDescriptor(editedBy = UserId, parentUpdateOperations(test = JsString(From), replace = ReplaceOperationJsValue))
+      val updateParentCommand = UpdateParentLinkCommand(from = From, to = ToUbrn, editedBy = UserId)
       val failureMessage = "some message"
       (readsUbrn.reads _).expects(ReplaceOperationJsValue).returning(JsSuccess(ToUbrn))
       (unitRegistryService.isRegistered _).expects(ToUbrn).returning(Future.successful(UnitFound))
-      (repository.updateParentLink _).expects(AdminUnitRef, From, ToUbrn).returning(Future.successful(EditFailed(failureMessage)))
+      (repository.updateParentLink _).expects(AdminUnitRef, updateParentCommand).returning(Future.successful(EditFailed(failureMessage)))
 
       whenReady(underTest.applyPatchTo(AdminUnitRef, patch)) { result =>
         result shouldBe PatchFailed(failureMessage)
@@ -74,34 +78,34 @@ class AdminDataPatchServiceSpec extends UnitSpec with MockFactory with ScalaFutu
 
     "rejects a patch" - {
       "when the test path is not the parent link path" in new Fixture {
-        val invalidTestPathPatch = Seq(
+        val operationsWithInvalidTestPath = Seq(
           TestOperation("/links/legalUnit", JsString(From)),
           ReplaceOperation("/links/ubrn", ReplaceOperationJsValue)
         )
 
-        whenReady(underTest.applyPatchTo(AdminUnitRef, invalidTestPathPatch)) { result =>
+        whenReady(underTest.applyPatchTo(AdminUnitRef, PatchDescriptor(editedBy = UserId, operationsWithInvalidTestPath))) { result =>
           result shouldBe PatchRejected("Unsupported test path [/links/legalUnit]")
         }
       }
 
       "when the replace path is not the parent link path" in new Fixture {
-        val invalidReplacePathPatch = Seq(
+        val operationsWithInvalidReplacePath = Seq(
           TestOperation("/links/ubrn", JsString(From)),
           ReplaceOperation("/links/legalUnit", ReplaceOperationJsValue)
         )
 
-        whenReady(underTest.applyPatchTo(AdminUnitRef, invalidReplacePathPatch)) { result =>
+        whenReady(underTest.applyPatchTo(AdminUnitRef, PatchDescriptor(editedBy = UserId, operationsWithInvalidReplacePath))) { result =>
           result shouldBe PatchRejected("Unsupported replace path [/links/legalUnit]")
         }
       }
 
       "when both the test & replace paths are not the parent link path" in new Fixture {
-        val invalidPathPatch = Seq(
+        val operationsWithInvalidPath = Seq(
           TestOperation("/links/legalUnit", JsString(From)),
           ReplaceOperation("/links/legalUnit", ReplaceOperationJsValue)
         )
 
-        whenReady(underTest.applyPatchTo(AdminUnitRef, invalidPathPatch)) { result =>
+        whenReady(underTest.applyPatchTo(AdminUnitRef, PatchDescriptor(editedBy = UserId, operationsWithInvalidPath))) { result =>
           result shouldBe PatchRejected("Unsupported test path [/links/legalUnit] and replace path [/links/legalUnit]")
         }
       }
@@ -111,40 +115,40 @@ class AdminDataPatchServiceSpec extends UnitSpec with MockFactory with ScalaFutu
        * and would run the risk of overwriting another user's concurrent changes.
        */
       "that does not contain both a 'test' and a 'replace' operation" in new Fixture {
-        val noTestPatch = Seq(ReplaceOperation("/links/ubrn", ReplaceOperationJsValue))
+        val replaceOnlyOperation = Seq(ReplaceOperation("/links/ubrn", ReplaceOperationJsValue))
 
-        whenReady(underTest.applyPatchTo(AdminUnitRef, noTestPatch)) { result =>
+        whenReady(underTest.applyPatchTo(AdminUnitRef, PatchDescriptor(editedBy = UserId, replaceOnlyOperation))) { result =>
           result shouldBe PatchRejected("Unsupported sequence of operations")
         }
       }
 
       "containing a test value that is not a string" in new Fixture {
-        val invalidFromPatch = Seq(
+        val operationsWithInvalidFromValue = Seq(
           TestOperation("/links/ubrn", JsNumber(42)),
           ReplaceOperation("/links/ubrn", ReplaceOperationJsValue)
         )
 
-        whenReady(underTest.applyPatchTo(AdminUnitRef, invalidFromPatch)) { result =>
+        whenReady(underTest.applyPatchTo(AdminUnitRef, PatchDescriptor(editedBy = UserId, operationsWithInvalidFromValue))) { result =>
           result shouldBe a [PatchRejected]
           result.asInstanceOf[PatchRejected].msg should startWith("test value must be a string")
         }
       }
 
       "containing a replacement value that is not a Ubrn" in new Fixture {
-        val invalidToUbrnPatch = Seq(
+        val operationsWithInvalidToValue = Seq(
           TestOperation("/links/ubrn", JsString(From)),
           ReplaceOperation("/links/ubrn", ReplaceOperationJsValue)
         )
         (readsUbrn.reads _).expects(ReplaceOperationJsValue).returning(JsError("Invalid UBRN"))
 
-        whenReady(underTest.applyPatchTo(AdminUnitRef, invalidToUbrnPatch)) { result =>
+        whenReady(underTest.applyPatchTo(AdminUnitRef, PatchDescriptor(editedBy = UserId, operationsWithInvalidToValue))) { result =>
           result shouldBe a [PatchRejected]
           result.asInstanceOf[PatchRejected].msg should startWith("replace value must have UBRN format")
         }
       }
 
       "requesting a checked update of the Admin Unit's parent UBRN to that of a Legal Unit that is not known to the register" in new Fixture {
-        val patch = parentUpdatePatch(test = JsString(From), replace = ReplaceOperationJsValue)
+        val patch = PatchDescriptor(editedBy = UserId, parentUpdateOperations(test = JsString(From), replace = ReplaceOperationJsValue))
         (readsUbrn.reads _).expects(ReplaceOperationJsValue).returning(JsSuccess(ToUbrn))
         (unitRegistryService.isRegistered _).expects(ToUbrn).returning(Future.successful(UnitNotFound))
 
@@ -155,7 +159,7 @@ class AdminDataPatchServiceSpec extends UnitSpec with MockFactory with ScalaFutu
     }
 
     "fails when an error is encountered while attempting to confirm that the requested parent Legal Unit is known to the register" in new Fixture {
-      val patch = parentUpdatePatch(test = JsString(From), replace = ReplaceOperationJsValue)
+      val patch = PatchDescriptor(editedBy = UserId, parentUpdateOperations(test = JsString(From), replace = ReplaceOperationJsValue))
       val failureMessage = "some message"
       (readsUbrn.reads _).expects(ReplaceOperationJsValue).returning(JsSuccess(ToUbrn))
       (unitRegistryService.isRegistered _).expects(ToUbrn).returning(Future.successful(UnitRegistryFailure(failureMessage)))
@@ -174,8 +178,9 @@ private object AdminDataPatchServiceSpec {
   val From = "1111111111111111"
   val ToUbrn = Ubrn("9999999999999999")
   val ReplaceOperationJsValue = JsString("6666666666666666")
+  val UserId = "auser"
 
-  def parentUpdatePatch(test: JsString, replace: JsString): Patch = Seq(
+  def parentUpdateOperations(test: JsString, replace: JsString): Patch = Seq(
     TestOperation("/links/ubrn", test),
     ReplaceOperation("/links/ubrn", replace)
   )

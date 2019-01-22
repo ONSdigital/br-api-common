@@ -103,8 +103,10 @@ class HBaseRestRepository @Inject() (config: HBaseRestRepositoryConfig,
       case rows => Left(ResultRepositoryError(s"At most one result was expected but found [${rows.size}]"))
     }
 
-  override def updateRow(rowKey: RowKey, checkCell: HBaseCell, updateCell: HBaseCell)(implicit logger: Logger): Future[OptimisticEditResult] =
-    ifExists(rowKey, _ => doCheckedEdit(rowKey, checkCell, updateCell))
+  // we use this signature to enforce at least one updateCell
+  override def updateRow(rowKey: RowKey, checkCell: HBaseCell, updateCell: HBaseCell, otherUpdateCells: Seq[HBaseCell] = Seq.empty)
+                        (implicit logger: Logger): Future[OptimisticEditResult] =
+    ifExists(rowKey, _ => doCheckedEdit(rowKey, checkCell, updateCell, otherUpdateCells))
 
   /*
    * A HBase "checked action" (either an update or delete) simply returns 304: Not Modified when no action is taken.
@@ -124,11 +126,15 @@ class HBaseRestRepository @Inject() (config: HBaseRestRepositoryConfig,
       )
     }
 
-  private def doCheckedEdit(rowKey: RowKey, checkCell: HBaseCell, updateCell: HBaseCell)(implicit logger: Logger): Future[OptimisticEditResult] = {
+  private def doCheckedEdit(rowKey: RowKey, checkCell: HBaseCell, updateCell: HBaseCell, otherUpdateCells: Seq[HBaseCell])
+                           (implicit logger: Logger): Future[OptimisticEditResult] = {
     val updateUrl = urlForCheckedPut(rowKey)
-    if (logger.isDebugEnabled) logger.debug("Requesting update of [{}] at [{}] via HBase REST", updateCell.column: Any, updateUrl: Any)
+    if (logger.isDebugEnabled)
+      logger.debug("Requesting update of [{}] additionally setting [{}] at [{}] via HBase REST", updateCell.column,
+        otherUpdateCells.map(_.column).mkString, updateUrl)
     // order is important here - the "check value" (which acts as an optimistic lock) must be last
-    val updateBody = Seq(HBaseRow(key = rowKey, cells = Seq(updateCell, checkCell)))
+    val updateBody = Seq(HBaseRow(key = rowKey, cells = updateCell +: otherUpdateCells :+ checkCell))
+    if (logger.isDebugEnabled) logger.debug("HBase update request body is {}", updateBody)
     val json = Json.toJson(updateBody)(HBaseRestData.format)
     baseRequest(updateUrl).withHttpHeaders(CONTENT_TYPE -> JSON).put(json).
       map(fromResponseToOptimisticEditResult).
