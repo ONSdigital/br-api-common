@@ -13,5 +13,7 @@ import scala.concurrent.Future
 trait HBaseRepository {
   def findRow(rowKey: RowKey)(implicit logger: Logger): Future[QueryResult[HBaseRow]]
 
-  def updateRow(rowKey: RowKey, checkCell: HBaseCell, updateCell: HBaseCell)(implicit logger: Logger): Future[OptimisticEditResult]
+  // originally used a var-arg for otherUpdateCells but ScalaMock does not support this in a curried function
+  def updateRow(rowKey: RowKey, checkCell: HBaseCell, updateCell: HBaseCell, otherUpdateCells: Seq[HBaseCell] = Seq.empty)
+               (implicit logger: Logger): Future[OptimisticEditResult]
 }

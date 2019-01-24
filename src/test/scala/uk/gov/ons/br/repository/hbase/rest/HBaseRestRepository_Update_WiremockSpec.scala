@@ -4,7 +4,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.{aResponse, equalToJson}
 import play.api.http.Status.{BAD_REQUEST, UNAUTHORIZED}
 import play.api.libs.json.{JsResult, JsSuccess, Json}
 import uk.gov.ons.br.repository.CommandRepository.{EditApplied, EditConflicted, EditFailed, EditTargetNotFound}
-import uk.gov.ons.br.repository.hbase.rest.HBaseRestRepository_Update_WiremockSpec.{CheckAndUpdateRequestBody, OldCell, RowKey, UpdatedCell}
+import uk.gov.ons.br.repository.hbase.rest.HBaseRestRepository_Update_WiremockSpec.{CheckAndUpdateRequestBody, CheckAndUpdateAndSetAdditionalFieldRequestBody, OldCell, OtherCell, RowKey, UpdatedCell}
 import uk.gov.ons.br.repository.hbase.{HBaseCell, HBaseColumn, HBaseRow, RowKey}
 import uk.gov.ons.br.test.hbase.HBaseJsonBodyBuilder
 
@@ -42,7 +42,7 @@ class HBaseRestRepository_Update_WiremockSpec extends AbstractHBaseRestRepositor
 
   "A HBase REST Repository" - {
     "successfully applies an update to a row that has not been modified by another user" - {
-      "when the update affects a single field" in { implicit fixture =>
+      "when the update sets a single field" in { implicit fixture =>
         import fixture._
         stubHBaseTargetEntityWillBeFound(withRowKey = RowKey)
         stubHBaseFor(checkedPutHBaseJson(namespace = config.namespace, tableName = config.tableName, auth = auth, rowKey = RowKey).
@@ -51,6 +51,19 @@ class HBaseRestRepository_Update_WiremockSpec extends AbstractHBaseRestRepositor
         )
 
         whenReady(repository.updateRow(RowKey, checkCell = OldCell, updateCell = UpdatedCell)(logger)) { result =>
+          result shouldBe EditApplied
+        }
+      }
+
+      "when the update sets multiple fields" in { implicit fixture =>
+        import fixture._
+        stubHBaseTargetEntityWillBeFound(withRowKey = RowKey)
+        stubHBaseFor(checkedPutHBaseJson(namespace = config.namespace, tableName = config.tableName, auth = auth, rowKey = RowKey).
+          withRequestBody(equalToJson(CheckAndUpdateAndSetAdditionalFieldRequestBody)).
+          willReturn(anOkResponse())
+        )
+
+        whenReady(repository.updateRow(RowKey, checkCell = OldCell, updateCell = UpdatedCell, Seq(OtherCell))(logger)) { result =>
           result shouldBe EditApplied
         }
       }
@@ -162,11 +175,22 @@ private object HBaseRestRepository_Update_WiremockSpec extends HBaseJsonBodyBuil
   private val ColumnName = HBaseColumn.name(ColumnFamily)(ColumnQualifier)
   private val OldCell = HBaseCell(ColumnName, "oldValue")
   private val UpdatedCell = HBaseCell(ColumnName, "updatedValue")
+  private val OtherColumn = HBaseColumn("otherColumnFamily", "otherColumnQualifier")
+  private val OtherCell = HBaseCell(HBaseColumn.name(OtherColumn), "otherColumnValue")
 
   private val CheckAndUpdateRequestBody =
     aBodyWith(
       aRowWith(key = RowKey,
         aColumnWith(family = ColumnFamily, qualifier = ColumnQualifier, value = UpdatedCell.value, timestamp = None),
+        aColumnWith(family = ColumnFamily, qualifier = ColumnQualifier, value = OldCell.value, timestamp = None)
+      )
+    )
+
+  private val CheckAndUpdateAndSetAdditionalFieldRequestBody =
+    aBodyWith(
+      aRowWith(key = RowKey,
+        aColumnWith(family = ColumnFamily, qualifier = ColumnQualifier, value = UpdatedCell.value, timestamp = None),
+        aColumnWith(family = OtherColumn.family, qualifier = OtherColumn.qualifier, value = OtherCell.value, timestamp = None),
         aColumnWith(family = ColumnFamily, qualifier = ColumnQualifier, value = OldCell.value, timestamp = None)
       )
     )

@@ -5,7 +5,7 @@ import javax.inject.Inject
 import org.slf4j.{Logger, LoggerFactory}
 import play.api.libs.json.{JsValue, Reads}
 import uk.gov.ons.br.models.Ubrn
-import uk.gov.ons.br.models.patch.{Patch, ReplaceOperation, TestOperation}
+import uk.gov.ons.br.models.patch.{ReplaceOperation, TestOperation}
 import uk.gov.ons.br.repository.CommandRepository
 import uk.gov.ons.br.repository.CommandRepository._
 import uk.gov.ons.br.services.PatchService._
@@ -28,9 +28,9 @@ class AdminDataPatchService[R] @Inject() (repository: CommandRepository[R, Ubrn]
   require(ParentLinkPath.startsWith("/"), "ParentLinkPath must start with '/'")
   private lazy val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
-  override def applyPatchTo(unitRef: R, patch: Patch): Future[PatchStatus] = {
-    if (logger.isDebugEnabled) logger.debug("Applying patch to [{}] of specification [{}]", unitRef, patch)
-    patch match {
+  override def applyPatchTo(unitRef: R, patch: PatchDescriptor): Future[PatchStatus] = {
+    if (logger.isDebugEnabled) logger.debug("Applying patch to [{}] with descriptor [{}]", unitRef, patch)
+    patch.operations match {
       case TestOperation(ParentLinkPath, testValue) :: ReplaceOperation(ParentLinkPath, replaceValue) :: Nil =>
         (for {
           testStr <- asRejectionOr[String](testValue, rejectionMsg = "test value must be a string")
@@ -38,7 +38,7 @@ class AdminDataPatchService[R] @Inject() (repository: CommandRepository[R, Ubrn]
         } yield (testStr, replacementUbrn)).fold[Future[PatchStatus]](
           Future.successful,
           { case (from, toUbrn) =>
-            updateParentUbrn(unitRef, from, toUbrn)
+            updateParentUbrn(withUnitRef = unitRef, from, toUbrn, patch.editedBy)
           }
         )
       case TestOperation(unsupportedTestPath, _) :: ReplaceOperation(ParentLinkPath, _) :: Nil =>
@@ -59,9 +59,11 @@ class AdminDataPatchService[R] @Inject() (repository: CommandRepository[R, Ubrn]
    * Legal Unit between the check and the update steps.  For now, we assume that units will not be outright deleted
    * and that this is sufficient.
    */
-  private def updateParentUbrn(unitRef: R, from: String, toUbrn: Ubrn): Future[PatchStatus] =
+  private def updateParentUbrn(withUnitRef: R, from: String, toUbrn: Ubrn, editedBy: String): Future[PatchStatus] =
     unitRegistryService.isRegistered(toUbrn).flatMap {
-      case UnitFound => repository.updateParentLink(unitRef, from, toUbrn).map(toPatchStatus)
+      case UnitFound => repository.updateParentLink(withUnitRef, UpdateParentLinkCommand(from, toUbrn, editedBy)).map {
+        toPatchStatus
+      }
       case UnitNotFound => Future.successful(PatchRejected(s"A Legal Unit with the target UBRN [$toUbrn] was not found"))
       case UnitRegistryFailure(msg) => Future.successful(PatchFailed(s"Failed confirming that target UBRN exists [$msg]"))
     }
