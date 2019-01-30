@@ -10,4 +10,5 @@ case class ServerRepositoryError(msg: String) extends RepositoryError
 
 package object repository {
   type QueryResult[U] = Either[RepositoryError, Option[U]]
+  type SearchResult[U] = Either[RepositoryError, Seq[U]]
 }

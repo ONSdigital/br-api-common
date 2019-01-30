@@ -43,6 +43,7 @@ lazy val root = (project in file(".")).
       playWs,
       silencerLib % Provided,
       slf4jApi,
+      solrs,
       
       // test dependencies
       registersApiTest % Test,
@@ -52,10 +53,13 @@ lazy val root = (project in file(".")).
     dependencyOverrides ++= Seq(
       commonsLang,
       findBugs,
+      httpClient,
       jacksonDatabind,
+      jclOverSlf4j,
       jettyHttp,
       jettyIo,
       jettyUtil,
+      scalaJava8Compat,
       scalaParserCombinators,
       scalaXml,
       seleniumRemoteDriver,
