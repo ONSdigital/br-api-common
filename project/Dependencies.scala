@@ -20,13 +20,13 @@ object Dependencies {
 object DependencyOverrides {
   lazy val commonsLang = "org.apache.commons" % "commons-lang3" % "3.6"
   lazy val findBugs = "com.google.code.findbugs" % "jsr305" % "3.0.2"
+  lazy val guava = "com.google.guava" % "guava" % "22.0"
   lazy val jacksonDatabind = "com.fasterxml.jackson.core" % "jackson-databind" % "2.8.11.2"
   lazy val jclOverSlf4j = "org.slf4j" % "jcl-over-slf4j" % "1.7.25"
   lazy val scalaJava8Compat = "org.scala-lang.modules" %% "scala-java8-compat" % "0.9.0"
   lazy val scalaParserCombinators = "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.6"
   lazy val scalaXml = "org.scala-lang.modules" %% "scala-xml" % "1.0.6"
   lazy val seleniumRemoteDriver = "org.seleniumhq.selenium" % "selenium-remote-driver" % "3.5.3"
-  lazy val guava = "com.google.guava" % "guava" % "22.0"
 
   // we are not using selenium - favour the jetty components needed by wiremock
   lazy val httpClient = "org.apache.httpcomponents" % "httpclient" % "4.5.5"
