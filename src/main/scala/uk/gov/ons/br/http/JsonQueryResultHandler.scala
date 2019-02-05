@@ -13,7 +13,7 @@ class JsonQueryResultHandler[U](implicit writes: Writes[U]) extends QueryResultH
 
   override def apply(queryResult: QueryResult[U]): Result = {
     val result = queryResult.fold(resultOnFailure, resultOnSuccess)
-    queryResult.left.foreach(err => logger.error("Encountered repository error [{}]", err))
+    queryResult.left.foreach(err => logger.error("Encountered query repository error [{}]", err))
     if (logger.isDebugEnabled) logger.debug("Translated queryResult of [{}] to HTTP status [{}]", queryResult, result.header.status)
     result
   }
