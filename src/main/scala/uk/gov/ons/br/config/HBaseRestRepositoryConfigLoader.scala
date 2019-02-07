@@ -1,12 +1,11 @@
 package uk.gov.ons.br.config
 
+
 import com.typesafe.config.Config
-import com.typesafe.config.ConfigException.BadValue
+import javax.inject.Inject
 import play.api.ConfigLoader
 import uk.gov.ons.br.repository.hbase.rest.HBaseRestRepositoryConfig
-import uk.gov.ons.br.utils.{BaseUrl, Port}
-
-import scala.util.control.NonFatal
+import uk.gov.ons.br.utils.BaseUrl
 
 /*
  * We want a misconfigured server to "fail fast".
@@ -17,11 +16,11 @@ import scala.util.control.NonFatal
  * Note that in real deployment environments the HBase url requires a 'prefix' value that follows the port.
  * This is not the case in local development environments.
  */
-object HBaseRestRepositoryConfigLoader extends ConfigLoader[HBaseRestRepositoryConfig] {
+class HBaseRestRepositoryConfigLoader @Inject() (baseUrlConfigLoader: ConfigLoader[BaseUrl]) extends ConfigLoader[HBaseRestRepositoryConfig] {
   override def load(rootConfig: Config, path: String): HBaseRestRepositoryConfig = {
     val config = rootConfig.getConfig(path)
     HBaseRestRepositoryConfig(
-      baseUrl = baseUrlFrom(config),
+      baseUrl = baseUrlConfigLoader.load(rootConfig, path),
       namespace = config.getString("namespace"),
       tableName = config.getString("tableName"),
       username = config.getString("username"),
@@ -29,27 +28,12 @@ object HBaseRestRepositoryConfigLoader extends ConfigLoader[HBaseRestRepositoryC
       timeout = config.getLong("timeout")
     )
   }
+}
 
-  private def baseUrlFrom(config: Config): BaseUrl =
-    BaseUrl(
-      config.getString("protocol"),
-      config.getString("host"),
-      portFrom(config),
-      noneEmpty(stringOrDefault(config, "prefix"))
-    )
-
-  private def portFrom(config: Config): Port = {
-    val path = "port"
-    val n = config.getInt(path)
-    try Port(n)
-    catch {
-      case NonFatal(e) => throw new BadValue(path, e.getMessage)
-    }
+object HBaseRestRepositoryConfigLoader {
+  @deprecated(message = "Create a suitable instance of the class rather than using the companion object", since = "1.4")
+  def load(rootConfig: Config, path: String): HBaseRestRepositoryConfig = {
+    val instance = new HBaseRestRepositoryConfigLoader(BaseUrlConfigLoader)
+    instance.load(rootConfig, path)
   }
-
-  private def stringOrDefault(config: Config, key: String, default: => String = ""): String =
-    if (config.hasPath(key)) config.getString(key) else default
-
-  private def noneEmpty(str: String): Option[String] =
-    if (str.trim.isEmpty) None else Some(str)
 }
