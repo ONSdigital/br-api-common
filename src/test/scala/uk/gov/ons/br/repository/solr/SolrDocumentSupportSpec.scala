@@ -27,7 +27,7 @@ class SolrDocumentSupportSpec extends UnitSpec {
       }
 
       "when the document consists of a single integer value" in {
-        val solrDocument = new SolrDocument(mutable.Map("key" -> 42.asInstanceOf[AnyRef]).asJava)
+        val solrDocument = new SolrDocument(mutable.Map("key" -> (Int.box(42): AnyRef)).asJava)
 
         asFields(solrDocument) shouldBe Map("key" -> "42")
       }
@@ -35,7 +35,7 @@ class SolrDocumentSupportSpec extends UnitSpec {
       "when the document contains multiple fields" in {
         val solrDocument = new SolrDocument(mutable.Map(
           "str" -> ("strvalue": AnyRef),
-          "num" -> 42.asInstanceOf[AnyRef]).asJava
+          "num" -> Int.box(42)).asJava
         )
 
         asFields(solrDocument) shouldBe Map("str" -> "strvalue", "num" -> "42")

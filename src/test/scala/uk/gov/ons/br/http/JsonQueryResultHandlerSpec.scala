@@ -17,7 +17,7 @@ class JsonQueryResultHandlerSpec extends UnitSpec with MockFactory {
 
   private trait Fixture {
     implicit val writesFakeUnit = mock[Writes[FakeUnit]]
-    private val underTest = new JsonQueryResultHandler()
+    private val underTest = JsonQueryResultHandler.apply[FakeUnit]
 
     def handle(queryResult: QueryResult[FakeUnit]): Future[Result] =
       Future.successful(underTest(queryResult))
