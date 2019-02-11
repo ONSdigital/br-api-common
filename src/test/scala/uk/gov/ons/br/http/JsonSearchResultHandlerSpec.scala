@@ -6,7 +6,7 @@ import play.api.libs.json.{JsArray, JsObject, JsString, Writes}
 import play.api.mvc.Result
 import play.api.test.Helpers._
 import play.mvc.Http.MimeTypes.JSON
-import uk.gov.ons.br.http.JsonSearchResultHandlerSpec.{FakeSearchUnit, SampleFakeSearchUnits, SampleFakeSearchUnitsJson}
+import uk.gov.ons.br.http.JsonSearchResultHandlerSpec.{FakeSearchUnit, SampleFakeSearchUnit, SampleFakeSearchUnitJson}
 import uk.gov.ons.br.repository.SearchResult
 import uk.gov.ons.br.test.UnitSpec
 import uk.gov.ons.br.{ResultRepositoryError, ServerRepositoryError, TimeoutRepositoryError}
@@ -16,8 +16,8 @@ import scala.concurrent.Future
 class JsonSearchResultHandlerSpec extends UnitSpec with MockFactory {
 
   private trait Fixture {
-    implicit val writesFakeSearchUnit = mock[Writes[Seq[FakeSearchUnit]]]
-    private val underTest = new JsonSearchResultHandler()
+    implicit val writesFakeSearchUnit = mock[Writes[FakeSearchUnit]]
+    private val underTest = JsonSearchResultHandler.apply[FakeSearchUnit]
 
     def handle(searchResult: SearchResult[FakeSearchUnit]): Future[Result] =
       Future.successful(underTest(searchResult))
@@ -25,13 +25,13 @@ class JsonSearchResultHandlerSpec extends UnitSpec with MockFactory {
 
   "A Json SearchResult Handler" - {
     "returns OK with a JSON representation of the search result when non empty" in new Fixture {
-      (writesFakeSearchUnit.writes _).expects(SampleFakeSearchUnits).returning(SampleFakeSearchUnitsJson)
+      (writesFakeSearchUnit.writes _).expects(SampleFakeSearchUnit).returning(SampleFakeSearchUnitJson)
 
-      val futResult = handle(Right(SampleFakeSearchUnits))
+      val futResult = handle(Right(Seq(SampleFakeSearchUnit)))
 
       status(futResult) shouldBe OK
       contentType(futResult).value shouldBe JSON
-      contentAsJson(futResult) shouldBe SampleFakeSearchUnitsJson
+      contentAsJson(futResult) shouldBe JsArray(Seq(SampleFakeSearchUnitJson))
     }
 
     "returns GATEWAY_TIMEOUT when the query result is a repository timeout error" in new Fixture {
@@ -56,6 +56,6 @@ class JsonSearchResultHandlerSpec extends UnitSpec with MockFactory {
 
 private object JsonSearchResultHandlerSpec {
   type FakeSearchUnit = AnyVal
-  val SampleFakeSearchUnits = Seq(42L)
-  val SampleFakeSearchUnitsJson = JsArray(Seq(JsObject(Seq("name" -> JsString("value")))))
+  val SampleFakeSearchUnit = 42L
+  val SampleFakeSearchUnitJson = JsObject(Seq("name" -> JsString("value")))
 }
